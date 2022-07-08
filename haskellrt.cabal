@@ -25,13 +25,20 @@ source-repository head
 
 library
   exposed-modules:
+      ColoniesLib
       CryptoLib
   other-modules:
       Paths_haskellrt
   hs-source-dirs:
       src
   build-depends:
-      base >=4.7 && <5
+      aeson
+    , base >=4.7 && <5
+    , base64-bytestring
+    , bytestring
+    , http-client
+    , http-conduit
+    , text
   default-language: Haskell2010
 
 executable haskellrt-exe
@@ -44,14 +51,22 @@ executable haskellrt-exe
   extra-libraries:
       cryptolib
   build-depends:
-      base >=4.7 && <5
+      aeson
+    , base >=4.7 && <5
+    , base64-bytestring
+    , bytestring
     , haskellrt
+    , http-client
+    , http-conduit
+    , text
   default-language: Haskell2010
 
 test-suite haskellrt-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      ColoniesLibTest
+      CryptoLibTest
       Paths_haskellrt
   hs-source-dirs:
       test
@@ -59,8 +74,14 @@ test-suite haskellrt-test
   extra-libraries:
       cryptolib
   build-depends:
-      base >=4.7 && <5
+      aeson
+    , base >=4.7 && <5
+    , base64-bytestring
+    , bytestring
     , haskellrt
+    , http-client
+    , http-conduit
     , tasty
     , tasty-hunit
+    , text
   default-language: Haskell2010

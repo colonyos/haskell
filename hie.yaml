@@ -1,0 +1,13 @@
+cradle:
+  stack:
+    - path: "./src"
+      component: "haskellrt:lib"
+
+    - path: "./app/Main.hs"
+      component: "haskellrt:exe:haskellrt-exe"
+
+    - path: "./app/Paths_haskellrt.hs"
+      component: "haskellrt:exe:haskellrt-exe"
+
+    - path: "./test"
+      component: "haskellrt:test:haskellrt-test"

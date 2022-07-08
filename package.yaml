@@ -21,6 +21,12 @@ description:         Please see the README on GitHub at <https://github.com/gith
 
 dependencies:
 - base >= 4.7 && < 5
+- text
+- aeson
+- http-client
+- http-conduit 
+- base64-bytestring
+- bytestring
 
 library:
   source-dirs: src
@@ -37,6 +43,11 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - haskellrt
+    - aeson
+    - text
+    - http-conduit
+    - base64-bytestring
+    - bytestring
 
 tests:
   haskellrt-test:
@@ -52,3 +63,8 @@ tests:
     - haskellrt
     - tasty
     - tasty-hunit
+    - aeson
+    - text
+    - http-conduit
+    - base64-bytestring
+    - bytestring
