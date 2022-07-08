@@ -27,23 +27,22 @@ data RPCMsg = RPCMsg { signature   :: Text,
 instance FromJSON RPCMsg
 instance ToJSON RPCMsg
 
-data RPCReplyMsg = RPCReplyMsg { error       :: Bool,
-                                 payloadtype :: Text,
-                                 replyPayload     :: Text
+data RPCReplyMsg = RPCReplyMsg { error        :: Bool,
+                                 payloadtype  :: Text,
+                                 replyPayload :: Text
                                }
-                               deriving (Show)
--- instance FromJSON RPCReplyMsg
--- instance ToJSON RPCReplyMsg
+                               deriving (Show, Generic)
+instance FromJSON RPCReplyMsg
+instance ToJSON RPCReplyMsg
 
-instance FromJSON RPCReplyMsg where
-    parseJSON (Object v) = RPCReplyMsg <$> v .: "error" <*> v .: "payloadtype" <*> v .: "payload"
+-- instance FromJSON RPCReplyMsg where
+--     parseJSON (Object v) = RPCReplyMsg <$> v .: "error" <*> v .: "payloadtype" <*> v .: "payload"
 
-instance ToJSON RPCReplyMsg where 
-    toJSON (RPCReplyMsg error payloadtype replyPayload) = object ["error" .= error, "payloadtype" .= payloadtype, "payload" .= replyPayload]
+-- instance ToJSON RPCReplyMsg where 
+--     toJSON (RPCReplyMsg error payloadtype replyPayload) = object ["error" .= error, "payloadtype" .= payloadtype, "payload" .= replyPayload]
 
-data Colony = Colony { colonyid :: Text,
-                       name     :: Text
-                     } deriving (Show, Generic)
+data Colony = Colony { colonyid :: Text, name :: Text } 
+            | String deriving (Show, Generic)
 instance FromJSON Colony
 instance ToJSON Colony
 
@@ -52,6 +51,21 @@ data AddColonyRPCMsg = AddColonyRPCMsg { colony  :: Colony,
                                        } deriving (Show, Generic)
 instance FromJSON AddColonyRPCMsg
 instance ToJSON AddColonyRPCMsg
+
+parseResponse :: Either HttpException (Response BLI.ByteString) -> Maybe Colony
+parseResponse eresponse = case eresponse of
+                                Left e -> Nothing
+                                Right response -> do let json = getResponseBody response
+                                                     let rpcReplyMsg = JSON.decode json :: Maybe RPCReplyMsg
+                                                     case rpcReplyMsg of
+                                                          Nothing -> Nothing 
+                                                          Just p -> do let payload = replyPayload p
+                                                                       let jsonEncoded = Base64.decode $ BI.packChars $ unpack payload
+                                                                       case jsonEncoded of
+                                                                            Left e -> Nothing 
+                                                                            Right j -> do let colonyJSON = j
+                                                                                          let lazyColonyJSON = BL.fromStrict colonyJSON
+                                                                                          JSON.decode lazyColonyJSON :: Maybe Colony
 
 createColony :: IO () 
 createColony = do
@@ -73,26 +87,7 @@ createColony = do
             $ setRequestBodyLBS jsonEncodedRPCMsg
             $ setRequestSecure False 
             $ request'
-    eresponse <- try $ httpLBS request
-
-    case eresponse of 
-        Left e -> print (e :: HttpException)
-        Right response -> do let json = getResponseBody response
-                             let rpcReplyMsg = JSON.decode json :: Maybe RPCReplyMsg
-                             case rpcReplyMsg of 
-                                  Nothing -> print "nothing"
-                                  Just p -> do let payload = replyPayload p 
-                                               let jsonEncoded = Base64.decode (BI.packChars (unpack payload))
-                                               case jsonEncoded of 
-                                                    Left e -> print "nothing"
-                                                    Right j -> do let colonyJSON = j
-                                                                  -- let colony = JSON.decode $ BL.fromStrict j
-                                                                  let lazyColonyJSON = BL.fromStrict colonyJSON
-                                                                  let colony = JSON.decode lazyColonyJSON :: Maybe Colony 
-                                                                  print (colony)
-                                                                  print "" 
-                                               print "" 
-
-                             print ""
-
+    eresponse <- try $ httpLBS request 
+   
+    let colony = parseResponse eresponse
     print ""
