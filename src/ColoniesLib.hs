@@ -1,6 +1,8 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DataKinds #-}                                                                                                                                                         
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE TypeApplications #-}
 
 module ColoniesLib  (
     Colony (..), 
@@ -19,6 +21,8 @@ import qualified Data.ByteString.Lazy.Internal as BLI
 import Data.Typeable
 import Control.Exception (try)
 import CryptoLib
+import Prelude hiding (error) 
+import GHC.Records (getField)
 
 data RPCMsg = RPCMsg { signature   :: Text,
                        payloadtype :: Text,
@@ -35,14 +39,9 @@ data RPCReplyMsg = RPCReplyMsg { error        :: Bool,
 instance FromJSON RPCReplyMsg
 instance ToJSON RPCReplyMsg
 
--- instance FromJSON RPCReplyMsg where
---     parseJSON (Object v) = RPCReplyMsg <$> v .: "error" <*> v .: "payloadtype" <*> v .: "payload"
-
--- instance ToJSON RPCReplyMsg where 
---     toJSON (RPCReplyMsg error payloadtype replyPayload) = object ["error" .= error, "payloadtype" .= payloadtype, "payload" .= replyPayload]
-
-data Colony = Colony { colonyid :: Text, name :: Text } 
-            | String deriving (Show, Generic)
+data Colony = Colony { colonyid :: Text, name :: Text }
+            | Err { msg :: Text }
+                  deriving (Show, Generic)
 instance FromJSON Colony
 instance ToJSON Colony
 
@@ -52,6 +51,10 @@ data AddColonyRPCMsg = AddColonyRPCMsg { colony  :: Colony,
 instance FromJSON AddColonyRPCMsg
 instance ToJSON AddColonyRPCMsg
 
+
+--parsePayload payloadtype jsonEncoded = do
+
+
 parseResponse :: Either HttpException (Response BLI.ByteString) -> Maybe Colony
 parseResponse eresponse = case eresponse of
                                 Left e -> Nothing
@@ -60,12 +63,18 @@ parseResponse eresponse = case eresponse of
                                                      case rpcReplyMsg of
                                                           Nothing -> Nothing 
                                                           Just p -> do let payload = replyPayload p
-                                                                       let jsonEncoded = Base64.decode $ BI.packChars $ unpack payload
-                                                                       case jsonEncoded of
-                                                                            Left e -> Nothing 
-                                                                            Right j -> do let colonyJSON = j
-                                                                                          let lazyColonyJSON = BL.fromStrict colonyJSON
-                                                                                          JSON.decode lazyColonyJSON :: Maybe Colony
+                                                                       let err = error p
+                                                                       if err == True then
+                                                                          Just Err { msg = "error" }
+                                                                       else do
+                                                                          let payloadType = getField @"payloadtype" p
+                                                                          let jsonEncoded = Base64.decode $ BI.packChars $ unpack payload
+                                                                          --parsePayload payloadtype jsonEncoded 
+                                                                          case jsonEncoded of
+                                                                               Left e -> Just Err { msg = "error" } 
+                                                                               Right j -> do let colonyJSON = j
+                                                                                             let lazyColonyJSON = BL.fromStrict colonyJSON
+                                                                                             JSON.decode lazyColonyJSON :: Maybe Colony
 
 createColony :: IO () 
 createColony = do

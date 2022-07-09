@@ -27,6 +27,7 @@ dependencies:
 - http-conduit 
 - base64-bytestring
 - bytestring
+- transformers
 
 library:
   source-dirs: src
@@ -48,6 +49,7 @@ executables:
     - http-conduit
     - base64-bytestring
     - bytestring
+    - transformers
 
 tests:
   haskellrt-test:
@@ -68,3 +70,4 @@ tests:
     - http-conduit
     - base64-bytestring
     - bytestring
+    - transformers
