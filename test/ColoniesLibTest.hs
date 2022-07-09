@@ -17,5 +17,6 @@ testColony = testCase "colony" $ do
     let c =  encode colony 
     print c 
     let l = 64 
+    addColony
     createColony
     assertBool "expecting length prvkey == 64" $ l == 64
