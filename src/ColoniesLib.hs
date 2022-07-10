@@ -6,13 +6,24 @@
 
 module ColoniesLib  (
     Colony (..), 
-    Runtime (..), 
+    Runtime (..),
+    Conditions (..),
+    ProcessSpec (..),
+    createColony,
     addColony,
     getColony,
     getColonies,
     createRuntime,
     addRuntime,
-    approveRuntime
+    approveRuntime,
+    createConditions,
+    createProcessSpec,
+    createEmptyProcess,
+    addEnv,
+    submit,
+    assign,
+    getCmd,
+    getArgs,
   ) where 
 
 import Data.Aeson as JSON
@@ -28,11 +39,15 @@ import Data.Text.IO as T
 import Data.Text.Lazy as TL
 import Data.Text.Lazy.Encoding as TL
 import Data.Text.Lazy.IO as TL
+import Data.Map as M
 import Data.Typeable
 import Control.Exception (try)
 import Prelude hiding (error) 
 import GHC.Records (getField)
 import CryptoLib
+
+
+-- Data types declaration
 
 data RPCMsg = RPCMsg { signature   :: T.Text,
                        payloadtype :: T.Text,
@@ -50,25 +65,90 @@ instance ToJSON RPCReplyMsg
 
 data Err = Err deriving (Show, Eq)
 
-parsePayload :: T.Text -> Either a BI.ByteString -> Maybe (T.Text, BLI.ByteString)
-parsePayload payloadType jsonEncoded = do
-    case jsonEncoded of
-        Left e -> Nothing 
-        Right j -> do let json = j
-                      let lazyJSON = BL.fromStrict json
-                      Just (payloadType, lazyJSON)
+data RPCOperations = AddColonyRPCMsg { colony  :: Colony, msgtype :: T.Text } 
+                   | GetColonyRPCMsg { colonyid :: T.Text, msgtype :: T.Text }
+                   | GetColoniesRPCMsg { msgtype :: T.Text }
+                   | AddRuntimeRPCMsg { runtime :: Runtime, msgtype :: T.Text }
+                   | ApproveRuntimeRPCMsg { runtimeid :: T.Text, msgtype :: T.Text }
+                   | SubmitProcessSpecRPCMsg { spec :: ProcessSpec, msgtype :: T.Text }
+                   | AssignProcessRPCMsg { colonyid :: T.Text, msgtype :: T.Text }
+                       deriving (Show, Generic)
+instance FromJSON RPCOperations 
+instance ToJSON RPCOperations 
 
-parseResponse :: Either HttpException (Response BLI.ByteString) -> Maybe (T.Text, BLI.ByteString)
-parseResponse e = case e of
-    Left e -> Nothing
-    Right resp -> do let json = getResponseBody resp
-                     let rpcReplyMsg = JSON.eitherDecode json :: Either String RPCReplyMsg
-                     case rpcReplyMsg of
-                          Left e -> Nothing
-                          Right p -> do let payload = getField @"payload" p 
-                                        let payloadType = getField @"payloadtype" p
-                                        let jsonEncoded = Base64.decode $ BI.packChars $ T.unpack payload
-                                        parsePayload payloadType jsonEncoded
+data Colony = Colony { colonyid :: T.Text,
+                       name :: T.Text } deriving (Show, Generic, Eq)
+instance FromJSON Colony
+instance ToJSON Colony
+
+data Runtime = Runtime { runtimeid :: T.Text,
+                         runtimetype :: T.Text,
+                         name :: T.Text,
+                         colonyid :: T.Text,
+                         cpu :: T.Text,
+                         cores :: Int, 
+                         mem :: Int,
+                         gpu :: T.Text,
+                         gpus :: Int,
+                         state :: Int,
+                         commissiontime :: T.Text,
+                         lastheardfromtime :: T.Text } deriving (Show, Generic, Eq)
+instance FromJSON Runtime 
+instance ToJSON Runtime 
+
+data Conditions = Conditions { colonyid :: T.Text, 
+                               runtimeids :: [T.Text],
+                               runtimetype :: T.Text,
+                               mem :: Int, 
+                               cores :: Int,
+                               gpus :: Int,
+                               dependencies :: [T.Text] } deriving (Show, Generic, Eq)
+instance FromJSON Conditions 
+instance ToJSON Conditions 
+
+data ProcessSpec = ProcessSpec { name :: T.Text,
+                                 image :: T.Text,
+                                 cmd :: T.Text,
+                                 args :: [T.Text],
+                                 volumes :: [T.Text],
+                                 ports :: [T.Text],
+                                 priority :: Int, 
+                                 maxexectime :: Int,
+                                 maxretries :: Int,
+                                 conditions :: Conditions,
+                                 env :: Map T.Text T.Text } deriving (Show, Generic, Eq)
+instance FromJSON ProcessSpec 
+instance ToJSON ProcessSpec 
+
+data Attribute = Attribute { attributeid :: T.Text,
+                             targetid :: T.Text,
+                             targetcolonyid :: T.Text,
+                             targetprocessgraphid :: T.Text,
+                             attributetype :: Int,
+                             key :: T.Text,
+                             value :: T.Text } deriving (Show, Generic, Eq)
+instance FromJSON Attribute 
+instance ToJSON Attribute 
+
+data Process = Process { processid :: T.Text,
+                         assignedruntimeid :: T.Text,
+                         isassigned :: Bool,
+                         state :: Int,
+                         submissiontime :: T.Text,
+                         starttime :: T.Text,
+                         endtime :: T.Text, 
+                         deadline :: T.Text,
+                         retries :: Int,
+                         attributes :: [Attribute],
+                         spec :: ProcessSpec,
+                         waitforparents :: Bool,
+                         parents :: Maybe [T.Text],
+                         children :: Maybe [T.Text],
+                         processgraphid :: T.Text} deriving (Show, Generic, Eq)
+instance FromJSON Process 
+instance ToJSON Process
+
+-- RPC functions  
 
 checkError :: Either HttpException (Response BLI.ByteString) -> Maybe Err 
 checkError e = case e of
@@ -95,34 +175,27 @@ sendRPCMsg rpcMsg host key = do
             $ request'
     try $ httpLBS request
 
-data RPCOperations = AddColonyRPCMsg { colony  :: Colony, msgtype :: T.Text } 
-                   | GetColonyRPCMsg { colonyid :: T.Text, msgtype :: T.Text }
-                   | GetColoniesRPCMsg { msgtype :: T.Text }
-                   | AddRuntimeRPCMsg { runtime :: Runtime, msgtype :: T.Text }
-                   | ApproveRuntimeRPCMsg { runtimeid :: T.Text, msgtype :: T.Text }
-                       deriving (Show, Generic)
-instance FromJSON RPCOperations 
-instance ToJSON RPCOperations 
+-- Parser functions
 
-data Colony = Colony { colonyid :: T.Text,
-                       name :: T.Text } deriving (Show, Generic, Eq)
-instance FromJSON Colony
-instance ToJSON Colony
+parsePayload :: T.Text -> Either a BI.ByteString -> Maybe (T.Text, BLI.ByteString)
+parsePayload payloadType jsonEncoded = do
+    case jsonEncoded of
+        Left e -> Nothing 
+        Right j -> do let json = j
+                      let lazyJSON = BL.fromStrict json
+                      Just (payloadType, lazyJSON)
 
-data Runtime = Runtime { runtimeid :: T.Text,
-                         runtimetype :: T.Text,
-                         name :: T.Text,
-                         colonyid :: T.Text,
-                         cpu :: T.Text,
-                         cores :: Int, 
-                         mem :: Int,
-                         gpu :: T.Text,
-                         gpus :: Int,
-                         state :: Int,
-                         commissiontime :: T.Text,
-                         lastheardfromtime :: T.Text } deriving (Show, Generic, Eq)
-instance FromJSON Runtime 
-instance ToJSON Runtime 
+parseResponse :: Either HttpException (Response BLI.ByteString) -> Maybe (T.Text, BLI.ByteString)
+parseResponse e = case e of
+    Left e -> Nothing
+    Right resp -> do let json = getResponseBody resp
+                     let rpcReplyMsg = JSON.eitherDecode json :: Either String RPCReplyMsg
+                     case rpcReplyMsg of
+                          Left e -> Nothing
+                          Right p -> do let payload = getField @"payload" p 
+                                        let payloadType = getField @"payloadtype" p
+                                        let jsonEncoded = Base64.decode $ BI.packChars $ T.unpack payload
+                                        parsePayload payloadType jsonEncoded
 
 parseRuntime :: Maybe (T.Text, BLI.ByteString) -> Maybe Runtime 
 parseRuntime res = do  
@@ -132,7 +205,7 @@ parseRuntime res = do
                          let json = snd tuple 
                          JSON.decode json :: Maybe Runtime 
 
-parseColony :: Maybe (T.Text, BLI.ByteString) -> Maybe Colony 
+parseColony :: Maybe (T.Text, BLI.ByteString) -> Maybe Colony
 parseColony res = do  
     case res of
         Nothing -> Nothing
@@ -147,6 +220,20 @@ parseColonies res = do
         Just tuple -> do let payloadType = fst tuple
                          let json = snd tuple 
                          JSON.decode json :: Maybe [Colony]
+
+parseProcess :: Maybe (T.Text, BLI.ByteString) -> Maybe Process
+parseProcess res = do  
+    case res of
+        Nothing -> Nothing
+        Just tuple -> do let payloadType = fst tuple
+                         let json = snd tuple 
+                         JSON.decode json :: Maybe Process 
+
+-- API functions 
+
+createColony :: String -> String -> Colony
+createColony colonyid name = 
+    Colony { colonyid = T.pack colonyid, name = T.pack name }
 
 addColony :: Colony -> String -> String -> IO (Maybe Colony)
 addColony colony host key = do
@@ -178,7 +265,6 @@ createRuntime runtimeType runtimeId colonyId =
               commissiontime = "2022-07-10T13:32:17.117545582+02:00",
               lastheardfromtime = "2022-07-10T13:32:17.117545582+02:00"}
 
-
 addRuntime :: Runtime -> String -> String -> IO (Maybe Runtime)
 addRuntime runtime host key = do
     resp <- sendRPCMsg AddRuntimeRPCMsg { runtime = runtime, msgtype="addruntimemsg" } host key 
@@ -188,3 +274,109 @@ approveRuntime :: String -> String -> String -> IO (Maybe Err)
 approveRuntime runtimeId host key = do
     resp <- sendRPCMsg ApproveRuntimeRPCMsg { runtimeid = T.pack runtimeId, msgtype="approveruntimemsg" } host key 
     return $ checkError resp
+
+createConditions :: String -> String -> [String] -> Conditions 
+createConditions colonyId runtimeType dependencies =  
+    Conditions { colonyid = T.pack colonyId,
+                            runtimeids = [],
+                            runtimetype = T.pack runtimeType,
+                            mem = 0, 
+                            cores = 0,
+                            gpus = 0,
+                            dependencies = fmap (T.pack) dependencies }
+
+createProcessSpec :: String -> String -> [String] -> Int -> Int -> Conditions -> ProcessSpec 
+createProcessSpec name cmd args maxexectime maxretries conditions =
+  ProcessSpec { name = T.pack name,
+                image = "",
+                cmd = T.pack cmd,
+                args = fmap (T.pack) args,
+                volumes = [],
+                ports = [],
+                priority = 0,
+                maxexectime = maxexectime,
+                maxretries = maxretries,
+                conditions = conditions,
+                env = M.empty } 
+
+createProcessSpecWithEnv :: String -> String -> [String] -> Int -> Int -> Map T.Text T.Text -> Conditions -> ProcessSpec 
+createProcessSpecWithEnv name cmd args maxexectime maxretries env conditions =
+  ProcessSpec { name = T.pack name,
+                image = "",
+                cmd = T.pack cmd,
+                args = fmap (T.pack) args,
+                volumes = [],
+                ports = [],
+                priority = 0,
+                maxexectime = maxexectime,
+                maxretries = maxretries,
+                conditions = conditions,
+                env = env} 
+
+addEnv :: ProcessSpec -> String -> String -> ProcessSpec
+addEnv spec key value = do let name = T.unpack (getField @"name" spec)
+                           let cmd = T.unpack (getField @"cmd" spec)
+                           let args = fmap (T.unpack) (getField @"args" spec)
+                           let maxexectime = getField @"maxexectime" spec
+                           let maxretries = getField @"maxretries" spec
+                           let conditions = getField @"conditions" spec
+                           let env = getField @"env" spec
+                           let textKey = T.pack key
+                           let textValue = T.pack value
+                           let newEnv = M.insert textKey textValue env
+                           createProcessSpecWithEnv name cmd args maxexectime maxretries newEnv conditions  
+
+createEmptyProcess :: Process
+createEmptyProcess = 
+    Process { processid = "",
+              assignedruntimeid  = "",
+              isassigned = False,
+              state = -1,
+              submissiontime = "",
+              starttime = "",
+              endtime = "", 
+              deadline = "",
+              retries = -1,
+              attributes = [],
+              spec = ProcessSpec { name = "",
+                                   image = "",
+                                   cmd = "",
+                                   args = [],
+                                   volumes = [],
+                                   ports = [],
+                                   priority = 0,
+                                   maxexectime = -1,
+                                   maxretries = -1,
+                                   conditions = Conditions { colonyid = "",
+                                                             runtimeids = [],
+                                                             runtimetype = "",
+                                                             mem = 0, 
+                                                             cores = 0,
+                                                             gpus = 0,
+                                                             dependencies = [] },
+                                   env = M.empty },
+              waitforparents = False,
+              parents = Nothing,
+              children = Nothing,
+              processgraphid  = ""}
+
+submit :: ProcessSpec -> String -> String -> IO (Maybe Process)
+submit spec host key = do 
+    resp <- sendRPCMsg SubmitProcessSpecRPCMsg { spec = spec, msgtype="submitprocessespecmsg" } host key 
+    return $ parseProcess $ parseResponse resp 
+
+assign :: String -> String -> String -> IO (Maybe Process)
+assign colonyId host key = do 
+    resp <- sendRPCMsg AssignProcessRPCMsg { colonyid = T.pack colonyId, msgtype="assignprocessmsg" } host key 
+    print $ parseResponse resp 
+    return $ parseProcess $ parseResponse resp 
+
+getCmd :: Process -> IO String
+getCmd process = do 
+    let spec = getField @"spec" process 
+    return $ T.unpack $ getField @"cmd" spec 
+
+getArgs :: Process -> IO [String]
+getArgs process = do 
+    let spec = getField @"spec" process 
+    return $ fmap (T.unpack) $ getField @"args" spec 
