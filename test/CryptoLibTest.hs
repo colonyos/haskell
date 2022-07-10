@@ -11,7 +11,7 @@ cryptoLibTests = testGroup "CryptoLib" [testPrvkey,
                                         testRecoverid]
 
 testPrvkey = testCase "prvkey" $ do
-    key <- prvkey
+    key <- generateKey 
     let l = length key 
     assertBool "expecting length prvkey == 64" $ l == 64
 

@@ -1,5 +1,5 @@
 module CryptoLib
-    ( prvkey, identity, sign, hash, recoverid
+    ( generateKey, identity, sign, hash, recoverid
     ) where
 
 {-# LANGUAGE ForeignFunctionInterface #-}
@@ -13,11 +13,11 @@ foreign import ccall "sign" c_sign :: CString -> CString -> IO CString
 foreign import ccall "hash" c_hash :: CString -> IO CString
 foreign import ccall "recoverid" c_recoverid:: CString -> CString -> IO CString
 
-prvkey :: IO String
-prvkey = do k <- c_prvkey
-            str <- peekCString k
-            _ <- free k
-            return str 
+generateKey :: IO String
+generateKey = do k <- c_prvkey
+                 str <- peekCString k
+                 _ <- free k
+                 return str 
 
 identity :: String -> IO String
 identity prvkey = do prvkeyc <- newCString prvkey 

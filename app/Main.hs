@@ -3,7 +3,7 @@ module Main where
 import CryptoLib
 
 main :: IO ()
-main = do k <- prvkey
+main = do k <- generateKey 
           i <- identity "d6eb959e9aec2e6fdc44b5862b269e987b8a4d6f2baca542d8acaa97ee5e74f6"
           h <- hash "hello"
           s <- sign h k
