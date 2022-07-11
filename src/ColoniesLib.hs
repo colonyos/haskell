@@ -24,6 +24,10 @@ module ColoniesLib  (
     assign,
     getCmd,
     getArgs,
+    addAttribute,
+    createAttribute,
+    close,
+    failed
   ) where 
 
 import Data.Aeson as JSON
@@ -46,9 +50,7 @@ import Prelude hiding (error)
 import GHC.Records (getField)
 import CryptoLib
 
-
 -- Data types declaration
-
 data RPCMsg = RPCMsg { signature   :: T.Text,
                        payloadtype :: T.Text,
                        payload     :: T.Text
@@ -72,6 +74,9 @@ data RPCOperations = AddColonyRPCMsg { colony  :: Colony, msgtype :: T.Text }
                    | ApproveRuntimeRPCMsg { runtimeid :: T.Text, msgtype :: T.Text }
                    | SubmitProcessSpecRPCMsg { spec :: ProcessSpec, msgtype :: T.Text }
                    | AssignProcessRPCMsg { colonyid :: T.Text, msgtype :: T.Text }
+                   | AddAttributeRPCMsg { attribute :: Attribute, msgtype :: T.Text }
+                   | CloseSuccessfulRPCMsg { processid :: T.Text, msgtype :: T.Text }
+                   | CloseFailedRPCMsg { processid :: T.Text, msgtype :: T.Text }
                        deriving (Show, Generic)
 instance FromJSON RPCOperations 
 instance ToJSON RPCOperations 
@@ -142,14 +147,13 @@ data Process = Process { processid :: T.Text,
                          attributes :: [Attribute],
                          spec :: ProcessSpec,
                          waitforparents :: Bool,
-                         parents :: Maybe [T.Text],
-                         children :: Maybe [T.Text],
+                         parents :: [T.Text],
+                         children :: [T.Text],
                          processgraphid :: T.Text} deriving (Show, Generic, Eq)
 instance FromJSON Process 
 instance ToJSON Process
 
 -- RPC functions  
-
 checkError :: Either HttpException (Response BLI.ByteString) -> Maybe Err 
 checkError e = case e of
     Left e -> Just Err
@@ -176,7 +180,6 @@ sendRPCMsg rpcMsg host key = do
     try $ httpLBS request
 
 -- Parser functions
-
 parsePayload :: T.Text -> Either a BI.ByteString -> Maybe (T.Text, BLI.ByteString)
 parsePayload payloadType jsonEncoded = do
     case jsonEncoded of
@@ -229,25 +232,32 @@ parseProcess res = do
                          let json = snd tuple 
                          JSON.decode json :: Maybe Process 
 
--- API functions 
+parseAttribute :: Maybe (T.Text, BLI.ByteString) -> Maybe Attribute 
+parseAttribute res = do  
+    case res of
+        Nothing -> Nothing
+        Just tuple -> do let payloadType = fst tuple
+                         let json = snd tuple 
+                         JSON.decode json :: Maybe Attribute 
 
+-- API functions 
 createColony :: String -> String -> Colony
 createColony colonyid name = 
     Colony { colonyid = T.pack colonyid, name = T.pack name }
 
 addColony :: Colony -> String -> String -> IO (Maybe Colony)
 addColony colony host key = do
-    resp <- sendRPCMsg AddColonyRPCMsg { colony = colony, msgtype="addcolonymsg" } host key 
+    resp <- sendRPCMsg AddColonyRPCMsg { colony = colony, msgtype = "addcolonymsg" } host key 
     return $ parseColony $ parseResponse resp 
 
 getColony :: String -> String -> String -> IO (Maybe Colony) 
 getColony colonyId host key = do
-    resp <- sendRPCMsg GetColonyRPCMsg { colonyid = T.pack colonyId, msgtype="getcolonymsg" } host key 
+    resp <- sendRPCMsg GetColonyRPCMsg { colonyid = T.pack colonyId, msgtype = "getcolonymsg" } host key 
     return $ parseColony $ parseResponse resp 
 
 getColonies :: String -> String -> IO (Maybe [Colony]) 
 getColonies host key = do
-    resp <- sendRPCMsg GetColoniesRPCMsg { msgtype="getcoloniesmsg" } host key 
+    resp <- sendRPCMsg GetColoniesRPCMsg { msgtype = "getcoloniesmsg" } host key 
     return $ parseColonies $ parseResponse resp 
 
 createRuntime :: String -> String -> String -> Runtime 
@@ -267,12 +277,12 @@ createRuntime runtimeType runtimeId colonyId =
 
 addRuntime :: Runtime -> String -> String -> IO (Maybe Runtime)
 addRuntime runtime host key = do
-    resp <- sendRPCMsg AddRuntimeRPCMsg { runtime = runtime, msgtype="addruntimemsg" } host key 
+    resp <- sendRPCMsg AddRuntimeRPCMsg { runtime = runtime, msgtype = "addruntimemsg" } host key 
     return $ parseRuntime $ parseResponse resp 
 
 approveRuntime :: String -> String -> String -> IO (Maybe Err)
 approveRuntime runtimeId host key = do
-    resp <- sendRPCMsg ApproveRuntimeRPCMsg { runtimeid = T.pack runtimeId, msgtype="approveruntimemsg" } host key 
+    resp <- sendRPCMsg ApproveRuntimeRPCMsg { runtimeid = T.pack runtimeId, msgtype = "approveruntimemsg" } host key 
     return $ checkError resp
 
 createConditions :: String -> String -> [String] -> Conditions 
@@ -356,19 +366,18 @@ createEmptyProcess =
                                                              dependencies = [] },
                                    env = M.empty },
               waitforparents = False,
-              parents = Nothing,
-              children = Nothing,
+              parents = [],
+              children = [],
               processgraphid  = ""}
 
 submit :: ProcessSpec -> String -> String -> IO (Maybe Process)
 submit spec host key = do 
-    resp <- sendRPCMsg SubmitProcessSpecRPCMsg { spec = spec, msgtype="submitprocessespecmsg" } host key 
+    resp <- sendRPCMsg SubmitProcessSpecRPCMsg { spec = spec, msgtype = "submitprocessespecmsg" } host key 
     return $ parseProcess $ parseResponse resp 
 
 assign :: String -> String -> String -> IO (Maybe Process)
 assign colonyId host key = do 
-    resp <- sendRPCMsg AssignProcessRPCMsg { colonyid = T.pack colonyId, msgtype="assignprocessmsg" } host key 
-    print $ parseResponse resp 
+    resp <- sendRPCMsg AssignProcessRPCMsg { colonyid = T.pack colonyId, msgtype = "assignprocessmsg" } host key 
     return $ parseProcess $ parseResponse resp 
 
 getCmd :: Process -> IO String
@@ -379,4 +388,29 @@ getCmd process = do
 getArgs :: Process -> IO [String]
 getArgs process = do 
     let spec = getField @"spec" process 
-    return $ fmap (T.unpack) $ getField @"args" spec 
+    return $ fmap (T.unpack) $ getField @"args" spec
+
+createAttribute :: Process -> String -> String -> Attribute 
+createAttribute process key value = 
+    Attribute { attributeid = "",
+                targetid = getField @"processid" process,
+                targetcolonyid = getField @"colonyid" $ getField @"conditions" $ getField @"spec" process,
+                targetprocessgraphid = "",
+                attributetype = 1,
+                key = T.pack key,
+                value = T.pack value } 
+
+addAttribute :: Attribute -> String -> String -> IO (Maybe Attribute)
+addAttribute attr host key = do
+    resp <- sendRPCMsg AddAttributeRPCMsg { attribute = attr, msgtype = "addattributemsg" } host key 
+    return $ parseAttribute $ parseResponse resp 
+
+close :: Process -> String -> String -> IO (Maybe Err)
+close process host key = do
+    resp <- sendRPCMsg CloseSuccessfulRPCMsg { processid = getField @"processid" process, msgtype = "closesuccessfulmsg" } host key 
+    return $ checkError resp 
+
+failed :: Process -> String -> String -> IO (Maybe Err)
+failed process host key = do
+    resp <- sendRPCMsg CloseFailedRPCMsg { processid = getField @"processid" process, msgtype = "closefailedmsg" } host key 
+    return $ checkError resp 
