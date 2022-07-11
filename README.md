@@ -88,7 +88,7 @@ export COLONIES_RUNTIMETYPE="cli"
 
 ### Submit a process to calculate Fib(10)
 ```console
-colonies  process run --cmd fibonacci --args 10 --runtimetype cli
+colonies process run --cmd fibonacci --args 10 --runtimetype cli
 ```
 #### Output
 ```console
