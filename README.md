@@ -149,7 +149,7 @@ Attributes:
 
 ### Submit a process to calculate Fib(10) and wait for the result
 ```console
-colonies  process run --cmd fibonacci --args 10 --runtimetype cli --wait
+colonies process run --cmd fibonacci --args 10 --runtimetype cli --wait
 ```
 
 #### Output
