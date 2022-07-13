@@ -8,7 +8,7 @@ on:
 
 jobs:
   runner-job:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
 
     steps:
     - uses: actions/checkout@v2
@@ -26,5 +26,5 @@ jobs:
          stack-version: 'latest'
 
     - name: Test
-      run: 
+      run:
         ./bin/colonies dev; stack test 
