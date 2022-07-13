@@ -18,7 +18,10 @@ coloniesLibTest = testGroup "ColoniesLib" [testAddColony,
                                            testGetColony,
                                            testGetColonies,
                                            testSubmit,
-                                           testAssign]
+                                           testGetProcessId,
+                                           testAssign,
+                                           testClose,
+                                           testFailed]
 
 testAddColony = testCase "addColony" $ do
     prvkey <- generateKey
@@ -80,6 +83,36 @@ testSubmit = testCase "submit" $ do
     maybeProcess <- submit specWithEnv host runtimePrvKey 
     assertBool "expecting process" (maybeProcess/=Nothing)
 
+testGetProcessId = testCase "getProcessId" $ do
+    colonyPrvKey <- generateKey
+    colonyId <- identity colonyPrvKey 
+    let colony = createColony colonyId "test_colony"
+    addColony colony host serverPrvKey
+  
+    runtimePrvKey <- generateKey
+    runtimeId <- identity runtimePrvKey 
+    let runtime = createRuntime "test_runtimetype" runtimeId colonyId
+    addedRuntime <- addRuntime runtime host colonyPrvKey 
+    err <- approveRuntime runtimeId host colonyPrvKey
+    assertBool "expecting no error approving runtime" (err==Nothing)
+
+    let cond = createConditions colonyId "test_runtimetype" []
+    let spec = createProcessSpec "test_process_name" "test_cmd" ["test_arg1", "test_arg2"] 100 3 cond
+    maybeSubmittedProcess <- submit spec host runtimePrvKey 
+    let submittedProcess = maybe createEmptyProcess id maybeSubmittedProcess
+    assertBool "expecting process" (maybeSubmittedProcess/=Nothing)
+   
+    maybeAssignedProcess <- assign colonyId host runtimePrvKey
+    let assignedProcess = maybe createEmptyProcess id maybeAssignedProcess
+
+    processId <- getProcessId assignedProcess
+    maybeProcess <- getProcess processId host runtimePrvKey 
+    assertBool "expecting process" (maybeProcess/=Nothing)
+    let process = maybe createEmptyProcess id maybeProcess
+    processId2 <- getProcessId assignedProcess
+
+    assertBool "expecting same processId" (processId==processId2)
+
 testAssign = testCase "assign" $ do
     colonyPrvKey <- generateKey
     colonyId <- identity colonyPrvKey 
@@ -99,10 +132,60 @@ testAssign = testCase "assign" $ do
     maybeSubmittedProcess <- submit specWithEnv host runtimePrvKey 
     let submittedProcess = maybe createEmptyProcess id maybeSubmittedProcess
     assertBool "expecting process" (maybeSubmittedProcess/=Nothing)
-    
+   
     maybeAssignedProcess <- assign colonyId host runtimePrvKey
     let assignedProcess = maybe createEmptyProcess id maybeAssignedProcess
     cmd <- getCmd assignedProcess
     args <- getArgs assignedProcess
     assertEqual "expecting correct cmd" cmd "test_cmd"
     assertEqual "expecting correct args" args ["test_arg1", "test_arg2"]
+
+testClose = testCase "close" $ do
+    colonyPrvKey <- generateKey
+    colonyId <- identity colonyPrvKey 
+    let colony = createColony colonyId "test_colony"
+    addColony colony host serverPrvKey
+  
+    runtimePrvKey <- generateKey
+    runtimeId <- identity runtimePrvKey 
+    let runtime = createRuntime "test_runtimetype" runtimeId colonyId
+    addedRuntime <- addRuntime runtime host colonyPrvKey 
+    err <- approveRuntime runtimeId host colonyPrvKey
+    assertBool "expecting no error approving runtime" (err==Nothing)
+
+    let cond = createConditions colonyId "test_runtimetype" []
+    let spec = createProcessSpec "test_process_name" "test_cmd" ["test_arg1", "test_arg2"] 100 3 cond
+    maybeSubmittedProcess <- submit spec host runtimePrvKey 
+    let submittedProcess = maybe createEmptyProcess id maybeSubmittedProcess
+    assertBool "expecting process" (maybeSubmittedProcess/=Nothing)
+   
+    maybeAssignedProcess <- assign colonyId host runtimePrvKey
+    let assignedProcess = maybe createEmptyProcess id maybeAssignedProcess
+
+    err <- close assignedProcess host runtimePrvKey
+    assertBool "expecting no error closing process" (err==Nothing)
+
+testFailed = testCase "failed" $ do
+    colonyPrvKey <- generateKey
+    colonyId <- identity colonyPrvKey 
+    let colony = createColony colonyId "test_colony"
+    addColony colony host serverPrvKey
+  
+    runtimePrvKey <- generateKey
+    runtimeId <- identity runtimePrvKey 
+    let runtime = createRuntime "test_runtimetype" runtimeId colonyId
+    addedRuntime <- addRuntime runtime host colonyPrvKey 
+    err <- approveRuntime runtimeId host colonyPrvKey
+    assertBool "expecting no error approving runtime" (err==Nothing)
+
+    let cond = createConditions colonyId "test_runtimetype" []
+    let spec = createProcessSpec "test_process_name" "test_cmd" ["test_arg1", "test_arg2"] 100 3 cond
+    maybeSubmittedProcess <- submit spec host runtimePrvKey 
+    let submittedProcess = maybe createEmptyProcess id maybeSubmittedProcess
+    assertBool "expecting process" (maybeSubmittedProcess/=Nothing)
+   
+    maybeAssignedProcess <- assign colonyId host runtimePrvKey
+    let assignedProcess = maybe createEmptyProcess id maybeAssignedProcess
+
+    err <- failed assignedProcess host runtimePrvKey
+    assertBool "expecting no error closing process" (err==Nothing)

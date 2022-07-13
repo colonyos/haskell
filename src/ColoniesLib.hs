@@ -21,9 +21,11 @@ module ColoniesLib  (
     createEmptyProcess,
     addEnv,
     submit,
+    getProcess,
     assign,
     getCmd,
     getArgs,
+    getProcessId,
     addAttribute,
     createAttribute,
     close,
@@ -73,6 +75,7 @@ data RPCOperations = AddColonyRPCMsg { colony  :: Colony, msgtype :: T.Text }
                    | AddRuntimeRPCMsg { runtime :: Runtime, msgtype :: T.Text }
                    | ApproveRuntimeRPCMsg { runtimeid :: T.Text, msgtype :: T.Text }
                    | SubmitProcessSpecRPCMsg { spec :: ProcessSpec, msgtype :: T.Text }
+                   | GetProcessRPCMsg { processid :: T.Text, msgtype :: T.Text }
                    | AssignProcessRPCMsg { colonyid :: T.Text, msgtype :: T.Text }
                    | AddAttributeRPCMsg { attribute :: Attribute, msgtype :: T.Text }
                    | CloseSuccessfulRPCMsg { processid :: T.Text, msgtype :: T.Text }
@@ -375,6 +378,11 @@ submit spec host key = do
     resp <- sendRPCMsg SubmitProcessSpecRPCMsg { spec = spec, msgtype = "submitprocessespecmsg" } host key 
     return $ parseProcess $ parseResponse resp 
 
+getProcess :: String -> String -> String -> IO (Maybe Process)
+getProcess processId host key = do 
+    resp <- sendRPCMsg GetProcessRPCMsg { processid = T.pack processId, msgtype = "getprocessmsg" } host key 
+    return $ parseProcess $ parseResponse resp 
+
 assign :: String -> String -> String -> IO (Maybe Process)
 assign colonyId host key = do 
     resp <- sendRPCMsg AssignProcessRPCMsg { colonyid = T.pack colonyId, msgtype = "assignprocessmsg" } host key 
@@ -389,6 +397,11 @@ getArgs :: Process -> IO [String]
 getArgs process = do 
     let spec = getField @"spec" process 
     return $ fmap (T.unpack) $ getField @"args" spec
+
+getProcessId :: Process -> IO String
+getProcessId process = do 
+    let processId = getField @"processid" process 
+    return $ T.unpack processId 
 
 createAttribute :: Process -> String -> String -> Attribute 
 createAttribute process key value = 
