@@ -1,4 +1,4 @@
-# Introductions
+# Introduction
 
 This repo contains a Haskell implementation of the ColonyRuntime API, making it possible to implement Colonies applications/workers in Haskell.
 
