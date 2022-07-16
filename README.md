@@ -1,5 +1,4 @@
 # Introduction
-
 This repo contains a Haskell implementation of the ColonyRuntime API, making it possible to implement Colonies applications/workers in Haskell.
 
 ## Example code
@@ -51,17 +50,11 @@ main = forever worker
 ```
 
 ## To test it ... 
+First, install [Stack](https://docs.haskellstack.org/en/stable/README/). 
+
 ### Start a Colonies dev server 
-```console
-colonies dev
-```
+Note: the following environmental variables needs to be set, type **source devenv**.
 
-Start a Haskell worker (the example code). Note, you need to first install Stack and clone the repo.
-```console
-stack run
-```
-
-### To fully use the colonies CLI, the following environmental variables needs to be added
 ```console
 export LANG=en_US.UTF-8
 export LANGUAGE=en_US.UTF-8
@@ -86,9 +79,19 @@ export COLONIES_RUNTIMEPRVKEY="ddf7f7791208083b6a9ed975a72684f6406a269cfa36f1b1c
 export COLONIES_RUNTIMETYPE="cli"
 ```
 
+```console
+source devenv
+./bin/colonies dev
+```
+
+Start a Haskell worker (the example code). Note, you need to first install Stack and clone the repo.
+```console
+stack run
+```
+
 ### Submit a process to calculate Fib(10)
 ```console
-colonies process run --cmd fibonacci --args 10 --runtimetype cli
+./bin/colonies process run --cmd fibonacci --args 10 --runtimetype cli
 ```
 #### Output
 ```console
@@ -97,7 +100,7 @@ INFO[0000] Process submitted                             ProcessID=da41231a1f300
 ```
 ### Lookup the result 
 ```console
-colonies process get --processid da41231a1f30039edb5677a8084e5f1c605bc54e3e8fdec565170c4e4e8d23be
+./bin/colonies process get --processid da41231a1f30039edb5677a8084e5f1c605bc54e3e8fdec565170c4e4e8d23be
 ```
 
 #### Output
@@ -149,7 +152,7 @@ Attributes:
 
 ### Submit a process to calculate Fib(10) and wait for the result
 ```console
-colonies process run --cmd fibonacci --args 10 --runtimetype cli --wait
+./bin/colonies process run --cmd fibonacci --args 10 --runtimetype cli --wait
 ```
 
 #### Output

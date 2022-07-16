@@ -76,7 +76,7 @@ data RPCOperations = AddColonyRPCMsg { colony  :: Colony, msgtype :: T.Text }
                    | ApproveRuntimeRPCMsg { runtimeid :: T.Text, msgtype :: T.Text }
                    | SubmitProcessSpecRPCMsg { spec :: ProcessSpec, msgtype :: T.Text }
                    | GetProcessRPCMsg { processid :: T.Text, msgtype :: T.Text }
-                   | AssignProcessRPCMsg { colonyid :: T.Text, msgtype :: T.Text }
+                   | AssignProcessRPCMsg { colonyid :: T.Text, timeout :: Int, msgtype :: T.Text }
                    | AddAttributeRPCMsg { attribute :: Attribute, msgtype :: T.Text }
                    | CloseSuccessfulRPCMsg { processid :: T.Text, msgtype :: T.Text }
                    | CloseFailedRPCMsg { processid :: T.Text, msgtype :: T.Text }
@@ -385,7 +385,7 @@ getProcess processId host key = do
 
 assign :: String -> String -> String -> IO (Maybe Process)
 assign colonyId host key = do 
-    resp <- sendRPCMsg AssignProcessRPCMsg { colonyid = T.pack colonyId, msgtype = "assignprocessmsg" } host key 
+    resp <- sendRPCMsg AssignProcessRPCMsg { colonyid = T.pack colonyId, timeout = -1, msgtype = "assignprocessmsg" } host key 
     return $ parseProcess $ parseResponse resp 
 
 getCmd :: Process -> IO String
