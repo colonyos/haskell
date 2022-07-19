@@ -22,10 +22,10 @@ worker = do
     else do
         -- Parse process parameters
         let process = maybe createEmptyProcess id maybeProcess
-        cmd <- getCmd process
+        func <- getFunc process
         args <- getArgs process
-        if cmd == "fibonacci" then do
-            print "Got a Fibonacci task"
+        if func == "fibonacci" then do
+            print "Got a Fibonacci func invocation"
             let n = read $ head args :: Integer
             let f = fib n 
             print $ "-> fib " ++ show n ++ "=" ++ show f
@@ -37,7 +37,7 @@ worker = do
             close process host runtimePrvKey 
             print "Done calculating Fibonacci"
         else
-            print "Invalid cmd"
+            print "Invalid func args"
 
 main :: IO ()
 main = forever worker 

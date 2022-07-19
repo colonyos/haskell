@@ -23,7 +23,7 @@ module ColoniesLib  (
     submit,
     getProcess,
     assign,
-    getCmd,
+    getFunc,
     getArgs,
     getProcessId,
     addAttribute,
@@ -116,11 +116,10 @@ instance ToJSON Conditions
 
 data ProcessSpec = ProcessSpec { name :: T.Text,
                                  image :: T.Text,
-                                 cmd :: T.Text,
+                                 func :: T.Text,
                                  args :: [T.Text],
-                                 volumes :: [T.Text],
-                                 ports :: [T.Text],
                                  priority :: Int, 
+                                 maxwaittime :: Int,
                                  maxexectime :: Int,
                                  maxretries :: Int,
                                  conditions :: Conditions,
@@ -145,7 +144,9 @@ data Process = Process { processid :: T.Text,
                          submissiontime :: T.Text,
                          starttime :: T.Text,
                          endtime :: T.Text, 
-                         deadline :: T.Text,
+                         waitdeadline :: T.Text,
+                         execdeadline :: T.Text,
+                         errormsg :: T.Text,
                          retries :: Int,
                          attributes :: [Attribute],
                          spec :: ProcessSpec,
@@ -298,29 +299,27 @@ createConditions colonyId runtimeType dependencies =
                             gpus = 0,
                             dependencies = fmap (T.pack) dependencies }
 
-createProcessSpec :: String -> String -> [String] -> Int -> Int -> Conditions -> ProcessSpec 
-createProcessSpec name cmd args maxexectime maxretries conditions =
+createProcessSpec :: String -> String -> [String] -> Int -> Int -> Int -> Conditions -> ProcessSpec 
+createProcessSpec name func args maxwaittime maxexectime maxretries conditions =
   ProcessSpec { name = T.pack name,
                 image = "",
-                cmd = T.pack cmd,
+                func = T.pack func,
                 args = fmap (T.pack) args,
-                volumes = [],
-                ports = [],
                 priority = 0,
+                maxwaittime = maxwaittime,
                 maxexectime = maxexectime,
                 maxretries = maxretries,
                 conditions = conditions,
                 env = M.empty } 
 
-createProcessSpecWithEnv :: String -> String -> [String] -> Int -> Int -> Map T.Text T.Text -> Conditions -> ProcessSpec 
-createProcessSpecWithEnv name cmd args maxexectime maxretries env conditions =
+createProcessSpecWithEnv :: String -> String -> [String] -> Int -> Int -> Int -> Map T.Text T.Text -> Conditions -> ProcessSpec 
+createProcessSpecWithEnv name func args maxwaittime maxexectime maxretries env conditions =
   ProcessSpec { name = T.pack name,
                 image = "",
-                cmd = T.pack cmd,
+                func = T.pack func,
                 args = fmap (T.pack) args,
-                volumes = [],
-                ports = [],
                 priority = 0,
+                maxwaittime = maxwaittime,
                 maxexectime = maxexectime,
                 maxretries = maxretries,
                 conditions = conditions,
@@ -328,8 +327,9 @@ createProcessSpecWithEnv name cmd args maxexectime maxretries env conditions =
 
 addEnv :: ProcessSpec -> String -> String -> ProcessSpec
 addEnv spec key value = do let name = T.unpack (getField @"name" spec)
-                           let cmd = T.unpack (getField @"cmd" spec)
+                           let func = T.unpack (getField @"func" spec)
                            let args = fmap (T.unpack) (getField @"args" spec)
+                           let maxwaittime = getField @"maxwaittime" spec
                            let maxexectime = getField @"maxexectime" spec
                            let maxretries = getField @"maxretries" spec
                            let conditions = getField @"conditions" spec
@@ -337,7 +337,7 @@ addEnv spec key value = do let name = T.unpack (getField @"name" spec)
                            let textKey = T.pack key
                            let textValue = T.pack value
                            let newEnv = M.insert textKey textValue env
-                           createProcessSpecWithEnv name cmd args maxexectime maxretries newEnv conditions  
+                           createProcessSpecWithEnv name func args maxwaittime maxexectime maxretries newEnv conditions  
 
 createEmptyProcess :: Process
 createEmptyProcess = 
@@ -348,16 +348,17 @@ createEmptyProcess =
               submissiontime = "",
               starttime = "",
               endtime = "", 
-              deadline = "",
+              waitdeadline = "",
+              execdeadline = "",
+              errormsg = "",
               retries = -1,
               attributes = [],
               spec = ProcessSpec { name = "",
                                    image = "",
-                                   cmd = "",
+                                   func = "",
                                    args = [],
-                                   volumes = [],
-                                   ports = [],
                                    priority = 0,
+                                   maxwaittime = -1,
                                    maxexectime = -1,
                                    maxretries = -1,
                                    conditions = Conditions { colonyid = "",
@@ -388,10 +389,10 @@ assign colonyId host key = do
     resp <- sendRPCMsg AssignProcessRPCMsg { colonyid = T.pack colonyId, timeout = -1, msgtype = "assignprocessmsg" } host key 
     return $ parseProcess $ parseResponse resp 
 
-getCmd :: Process -> IO String
-getCmd process = do 
+getFunc :: Process -> IO String
+getFunc process = do 
     let spec = getField @"spec" process 
-    return $ T.unpack $ getField @"cmd" spec 
+    return $ T.unpack $ getField @"func" spec 
 
 getArgs :: Process -> IO [String]
 getArgs process = do 

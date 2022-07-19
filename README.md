@@ -28,10 +28,10 @@ worker = do
     else do
         -- Parse process parameters
         let process = maybe createEmptyProcess id maybeProcess
-        cmd <- getCmd process
+        func <- getFunc process
         args <- getArgs process
-        if cmd == "fibonacci" then do
-            print "Got a Fibonacci task"
+        if func == "fibonacci" then do
+            print "Got a Fibonacci func invocation"
             let n = read $ head args :: Integer
             let f = fib n 
             print $ "-> fib " ++ show n ++ "=" ++ show f
@@ -43,7 +43,7 @@ worker = do
             close process host runtimePrvKey 
             print "Done calculating Fibonacci"
         else
-            print "Invalid cmd"
+            print "Invalid Func arg"
 
 main :: IO ()
 main = forever worker 
@@ -91,7 +91,7 @@ stack run
 
 ### Submit a process to calculate Fib(10)
 ```console
-./bin/colonies process run --cmd fibonacci --args 10 --runtimetype cli
+./bin/colonies process run --func fibonacci --args 10 --runtimetype cli
 ```
 #### Output
 ```console
@@ -124,7 +124,7 @@ Process:
 ProcessSpec:
 +-------------+-----------+
 | Image       | None      |
-| Cmd         | fibonacci |
+| Func        | fibonacci |
 | Args        | 10        |
 | Volumes     | None      |
 | Ports       | None      |
@@ -152,7 +152,7 @@ Attributes:
 
 ### Submit a process to calculate Fib(10) and wait for the result
 ```console
-./bin/colonies process run --cmd fibonacci --args 10 --runtimetype cli --wait
+./bin/colonies process run --func fibonacci --args 10 --runtimetype cli --wait
 ```
 
 #### Output
