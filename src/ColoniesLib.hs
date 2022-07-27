@@ -93,11 +93,6 @@ data Runtime = Runtime { runtimeid :: T.Text,
                          runtimetype :: T.Text,
                          name :: T.Text,
                          colonyid :: T.Text,
-                         cpu :: T.Text,
-                         cores :: Int, 
-                         mem :: Int,
-                         gpu :: T.Text,
-                         gpus :: Int,
                          state :: Int,
                          commissiontime :: T.Text,
                          lastheardfromtime :: T.Text } deriving (Show, Generic, Eq)
@@ -107,15 +102,11 @@ instance ToJSON Runtime
 data Conditions = Conditions { colonyid :: T.Text, 
                                runtimeids :: [T.Text],
                                runtimetype :: T.Text,
-                               mem :: Int, 
-                               cores :: Int,
-                               gpus :: Int,
                                dependencies :: [T.Text] } deriving (Show, Generic, Eq)
 instance FromJSON Conditions 
 instance ToJSON Conditions 
 
 data ProcessSpec = ProcessSpec { name :: T.Text,
-                                 image :: T.Text,
                                  func :: T.Text,
                                  args :: [T.Text],
                                  priority :: Int, 
@@ -270,11 +261,6 @@ createRuntime runtimeType runtimeId colonyId =
               runtimetype = T.pack runtimeType, 
               name ="test_name", 
               colonyid = T.pack colonyId,
-              cpu = "",
-              cores = 0,
-              mem = 0,
-              gpu = "",
-              gpus = 0,
               state = 0,
               commissiontime = "2022-07-10T13:32:17.117545582+02:00",
               lastheardfromtime = "2022-07-10T13:32:17.117545582+02:00"}
@@ -294,15 +280,11 @@ createConditions colonyId runtimeType dependencies =
     Conditions { colonyid = T.pack colonyId,
                             runtimeids = [],
                             runtimetype = T.pack runtimeType,
-                            mem = 0, 
-                            cores = 0,
-                            gpus = 0,
                             dependencies = fmap (T.pack) dependencies }
 
 createProcessSpec :: String -> String -> [String] -> Int -> Int -> Int -> Conditions -> ProcessSpec 
 createProcessSpec name func args maxwaittime maxexectime maxretries conditions =
   ProcessSpec { name = T.pack name,
-                image = "",
                 func = T.pack func,
                 args = fmap (T.pack) args,
                 priority = 0,
@@ -315,7 +297,6 @@ createProcessSpec name func args maxwaittime maxexectime maxretries conditions =
 createProcessSpecWithEnv :: String -> String -> [String] -> Int -> Int -> Int -> Map T.Text T.Text -> Conditions -> ProcessSpec 
 createProcessSpecWithEnv name func args maxwaittime maxexectime maxretries env conditions =
   ProcessSpec { name = T.pack name,
-                image = "",
                 func = T.pack func,
                 args = fmap (T.pack) args,
                 priority = 0,
@@ -354,7 +335,6 @@ createEmptyProcess =
               retries = -1,
               attributes = [],
               spec = ProcessSpec { name = "",
-                                   image = "",
                                    func = "",
                                    args = [],
                                    priority = 0,
@@ -364,9 +344,6 @@ createEmptyProcess =
                                    conditions = Conditions { colonyid = "",
                                                              runtimeids = [],
                                                              runtimetype = "",
-                                                             mem = 0, 
-                                                             cores = 0,
-                                                             gpus = 0,
                                                              dependencies = [] },
                                    env = M.empty },
               waitforparents = False,
