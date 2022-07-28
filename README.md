@@ -123,11 +123,8 @@ Process:
 
 ProcessSpec:
 +-------------+-----------+
-| Image       | None      |
 | Func        | fibonacci |
 | Args        | 10        |
-| Volumes     | None      |
-| Ports       | None      |
 | MaxExecTime | -1        |
 | MaxRetries  | -1        |
 +-------------+-----------+
@@ -137,9 +134,6 @@ Conditions:
 | ColonyID    | 4787a5071856a4acf702b2ffcea422e3237a679c681314113d86139461290cf4 |
 | RuntimeIDs  | None                                                             |
 | RuntimeType | cli                                                              |
-| Memory      | 0                                                                |
-| CPU Cores   | 0                                                                |
-| GPUs        | 0                                                                |
 +-------------+------------------------------------------------------------------+
 
 Attributes:
