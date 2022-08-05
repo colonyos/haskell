@@ -39,7 +39,7 @@ testGetColony = testCase "getColony" $ do
   
     runtimePrvKey <- generateKey
     runtimeId <- identity runtimePrvKey 
-    let runtime = createRuntime "test_runtimetype" runtimeId colonyId
+    let runtime = createRuntime "test_runtime_name1" "test_runtimetype" runtimeId colonyId
     addedRuntime <- addRuntime runtime host colonyPrvKey 
     err <- approveRuntime runtimeId host colonyPrvKey
     assertBool "expecting no error approving runtime" (err==Nothing)
@@ -72,7 +72,7 @@ testSubmit = testCase "submit" $ do
   
     runtimePrvKey <- generateKey
     runtimeId <- identity runtimePrvKey 
-    let runtime = createRuntime "test_runtimetype" runtimeId colonyId
+    let runtime = createRuntime "test_runtime_name2" "test_runtimetype" runtimeId colonyId
     addedRuntime <- addRuntime runtime host colonyPrvKey 
     err <- approveRuntime runtimeId host colonyPrvKey
     assertBool "expecting no error approving runtime" (err==Nothing)
@@ -91,7 +91,7 @@ testGetProcessId = testCase "getProcessId" $ do
  
     runtimePrvKey <- generateKey
     runtimeId <- identity runtimePrvKey
-    let runtime = createRuntime "test_runtimetype" runtimeId colonyId
+    let runtime = createRuntime "test_runtime_name3" "test_runtimetype" runtimeId colonyId
     addedRuntime <- addRuntime runtime host colonyPrvKey
     err <- approveRuntime runtimeId host colonyPrvKey
     assertBool "expecting no error approving runtime" (err==Nothing)
@@ -121,7 +121,7 @@ testAssign = testCase "assign" $ do
  
     runtimePrvKey <- generateKey
     runtimeId <- identity runtimePrvKey
-    let runtime = createRuntime "test_runtimetype" runtimeId colonyId
+    let runtime = createRuntime "test_runtime_name4" "test_runtimetype" runtimeId colonyId
     addedRuntime <- addRuntime runtime host colonyPrvKey
     err <- approveRuntime runtimeId host colonyPrvKey
     assertBool "expecting no error approving runtime" (err==Nothing)
@@ -148,7 +148,7 @@ testClose = testCase "close" $ do
  
     runtimePrvKey <- generateKey
     runtimeId <- identity runtimePrvKey
-    let runtime = createRuntime "test_runtimetype" runtimeId colonyId
+    let runtime = createRuntime "test_runtime_name5" "test_runtimetype" runtimeId colonyId
     addedRuntime <- addRuntime runtime host colonyPrvKey
     err <- approveRuntime runtimeId host colonyPrvKey
     assertBool "expecting no error approving runtime" (err==Nothing)
@@ -173,7 +173,7 @@ testFailed = testCase "failed" $ do
  
     runtimePrvKey <- generateKey
     runtimeId <- identity runtimePrvKey
-    let runtime = createRuntime "test_runtimetype" runtimeId colonyId
+    let runtime = createRuntime "test_runtime_name6" "test_runtimetype" runtimeId colonyId
     addedRuntime <- addRuntime runtime host colonyPrvKey
     err <- approveRuntime runtimeId host colonyPrvKey
     assertBool "expecting no error approving runtime" (err==Nothing)

@@ -255,11 +255,11 @@ getColonies host key = do
     resp <- sendRPCMsg GetColoniesRPCMsg { msgtype = "getcoloniesmsg" } host key 
     return $ parseColonies $ parseResponse resp 
 
-createRuntime :: String -> String -> String -> Runtime 
-createRuntime runtimeType runtimeId colonyId = 
+createRuntime :: String -> String -> String -> String -> Runtime 
+createRuntime runtimeName runtimeType runtimeId colonyId = 
     Runtime { runtimeid = T.pack runtimeId, 
               runtimetype = T.pack runtimeType, 
-              name ="test_name", 
+              name = T.pack runtimeName, 
               colonyid = T.pack colonyId,
               state = 0,
               commissiontime = "2022-07-10T13:32:17.117545582+02:00",

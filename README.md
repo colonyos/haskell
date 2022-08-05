@@ -81,7 +81,7 @@ export COLONIES_RUNTIMETYPE="cli"
 
 ```console
 source devenv
-./bin/colonies dev
+colonies dev
 ```
 
 Start a Haskell worker (the example code). Note, you need to first install Stack and clone the repo.
@@ -91,7 +91,7 @@ stack run
 
 ### Submit a process to calculate Fib(10)
 ```console
-./bin/colonies process run --func fibonacci --args 10 --runtimetype cli
+./bin/colonies process run --func fibonacci --args 10 --targettype cli
 ```
 #### Output
 ```console
