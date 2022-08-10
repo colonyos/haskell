@@ -22,10 +22,9 @@ fib n = fib (n-1) + fib (n-2)
 worker :: IO ()
 worker = do
     -- Connect to the Colonies server and try to assign a process to execute from the job queue
-    maybeProcess <- assign colonyId host runtimePrvKey
-    if maybeProcess == Nothing then
-        threadDelay 1000000 -- Job queue is empty, wait 1 second and try again ...
-    else do
+    -- Wait max 5 seconds for an assignment 
+    maybeProcess <- assign colonyId 5 host runtimePrvKey
+    if maybeProcess /= Nothing then do
         -- Parse process parameters
         let process = maybe createEmptyProcess id maybeProcess
         func <- getFunc process
@@ -44,6 +43,8 @@ worker = do
             print "Done calculating Fibonacci"
         else
             print "Invalid Func arg"
+    else 
+        print "Failed to assign process, try again ..."
 
 main :: IO ()
 main = forever worker 

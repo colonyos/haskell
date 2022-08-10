@@ -361,9 +361,9 @@ getProcess processId host key = do
     resp <- sendRPCMsg GetProcessRPCMsg { processid = T.pack processId, msgtype = "getprocessmsg" } host key 
     return $ parseProcess $ parseResponse resp 
 
-assign :: String -> String -> String -> IO (Maybe Process)
-assign colonyId host key = do 
-    resp <- sendRPCMsg AssignProcessRPCMsg { colonyid = T.pack colonyId, timeout = -1, msgtype = "assignprocessmsg" } host key 
+assign :: String -> Int -> String -> String -> IO (Maybe Process)
+assign colonyId timeout host key = do 
+    resp <- sendRPCMsg AssignProcessRPCMsg { colonyid = T.pack colonyId, timeout = timeout, msgtype = "assignprocessmsg" } host key 
     return $ parseProcess $ parseResponse resp 
 
 getFunc :: Process -> IO String

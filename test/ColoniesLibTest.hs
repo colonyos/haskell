@@ -102,7 +102,7 @@ testGetProcessId = testCase "getProcessId" $ do
     let submittedProcess = maybe createEmptyProcess id maybeSubmittedProcess
     assertBool "expecting process" (maybeSubmittedProcess/=Nothing)
   
-    maybeAssignedProcess <- assign colonyId host runtimePrvKey
+    maybeAssignedProcess <- assign colonyId 10 host runtimePrvKey
     let assignedProcess = maybe createEmptyProcess id maybeAssignedProcess
 
     processId <- getProcessId assignedProcess
@@ -133,7 +133,7 @@ testAssign = testCase "assign" $ do
     let submittedProcess = maybe createEmptyProcess id maybeSubmittedProcess
     assertBool "expecting process" (maybeSubmittedProcess/=Nothing)
   
-    maybeAssignedProcess <- assign colonyId host runtimePrvKey
+    maybeAssignedProcess <- assign colonyId 10 host runtimePrvKey
     let assignedProcess = maybe createEmptyProcess id maybeAssignedProcess
     f <- getFunc assignedProcess
     args <- getArgs assignedProcess
@@ -159,7 +159,7 @@ testClose = testCase "close" $ do
     let submittedProcess = maybe createEmptyProcess id maybeSubmittedProcess
     assertBool "expecting process" (maybeSubmittedProcess/=Nothing)
   
-    maybeAssignedProcess <- assign colonyId host runtimePrvKey
+    maybeAssignedProcess <- assign colonyId 10 host runtimePrvKey
     let assignedProcess = maybe createEmptyProcess id maybeAssignedProcess
 
     err <- close assignedProcess host runtimePrvKey
@@ -184,7 +184,7 @@ testFailed = testCase "failed" $ do
     let submittedProcess = maybe createEmptyProcess id maybeSubmittedProcess
     assertBool "expecting process" (maybeSubmittedProcess/=Nothing)
   
-    maybeAssignedProcess <- assign colonyId host runtimePrvKey
+    maybeAssignedProcess <- assign colonyId 10 host runtimePrvKey
     let assignedProcess = maybe createEmptyProcess id maybeAssignedProcess
 
     err <- failed assignedProcess host runtimePrvKey
