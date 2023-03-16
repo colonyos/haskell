@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DataKinds #-}                                                                                                                                                         
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -8,7 +9,7 @@ module ColoniesLib  (
     Colony (..), 
     Runtime (..),
     Conditions (..),
-    ProcessSpec (..),
+    FunctionSpec (..),
     createColony,
     addColony,
     getColony,
@@ -33,6 +34,7 @@ module ColoniesLib  (
   ) where 
 
 import Data.Aeson as JSON
+import Data.Aeson.TH(deriveJSON, defaultOptions, Options(fieldLabelModifier))
 import GHC.Generics
 import Network.HTTP.Simple
 import Data.ByteString.Base64 as Base64
@@ -51,6 +53,8 @@ import Control.Exception (try)
 import Prelude hiding (error) 
 import GHC.Records (getField)
 import CryptoLib
+import RenameUtils(processFieldRename)
+import Debug.Trace
 
 -- Data types declaration
 data RPCMsg = RPCMsg { signature   :: T.Text,
@@ -72,9 +76,9 @@ data Err = Err deriving (Show, Eq)
 data RPCOperations = AddColonyRPCMsg { colony  :: Colony, msgtype :: T.Text } 
                    | GetColonyRPCMsg { colonyid :: T.Text, msgtype :: T.Text }
                    | GetColoniesRPCMsg { msgtype :: T.Text }
-                   | AddRuntimeRPCMsg { runtime :: Runtime, msgtype :: T.Text }
-                   | ApproveRuntimeRPCMsg { runtimeid :: T.Text, msgtype :: T.Text }
-                   | SubmitProcessSpecRPCMsg { spec :: ProcessSpec, msgtype :: T.Text }
+                   | AddRuntimeRPCMsg { executor :: Runtime, msgtype :: T.Text }
+                   | ApproveRuntimeRPCMsg { executorid :: T.Text, msgtype :: T.Text }
+                   | SubmitProcessSpecRPCMsg { spec :: FunctionSpec, msgtype :: T.Text }
                    | GetProcessRPCMsg { processid :: T.Text, msgtype :: T.Text }
                    | AssignProcessRPCMsg { colonyid :: T.Text, timeout :: Int, msgtype :: T.Text }
                    | AddAttributeRPCMsg { attribute :: Attribute, msgtype :: T.Text }
@@ -89,9 +93,9 @@ data Colony = Colony { colonyid :: T.Text,
 instance FromJSON Colony
 instance ToJSON Colony
 
-data Runtime = Runtime { runtimeid :: T.Text,
-                         runtimetype :: T.Text,
-                         name :: T.Text,
+data Runtime = Runtime { executorid :: T.Text,
+                         executortype :: T.Text,
+                         executorname :: T.Text,
                          colonyid :: T.Text,
                          state :: Int,
                          commissiontime :: T.Text,
@@ -100,23 +104,24 @@ instance FromJSON Runtime
 instance ToJSON Runtime 
 
 data Conditions = Conditions { colonyid :: T.Text, 
-                               runtimeids :: [T.Text],
-                               runtimetype :: T.Text,
+                               executorids :: [T.Text],
+                               executortype :: T.Text,
                                dependencies :: [T.Text] } deriving (Show, Generic, Eq)
 instance FromJSON Conditions 
 instance ToJSON Conditions 
 
-data ProcessSpec = ProcessSpec { name :: T.Text,
-                                 func :: T.Text,
-                                 args :: [T.Text],
-                                 priority :: Int, 
-                                 maxwaittime :: Int,
-                                 maxexectime :: Int,
-                                 maxretries :: Int,
-                                 conditions :: Conditions,
-                                 env :: Map T.Text T.Text } deriving (Show, Generic, Eq)
-instance FromJSON ProcessSpec 
-instance ToJSON ProcessSpec 
+data FunctionSpec = FunctionSpec { nodename :: T.Text,
+                                   funcname :: T.Text,
+                                   args :: [T.Text],
+                                   priority :: Int, 
+                                   maxwaittime :: Int,
+                                   maxexectime :: Int,
+                                   maxretries :: Int,
+                                   conditions :: Conditions,
+                                   label :: T.Text,
+                                   env :: Map T.Text T.Text } deriving (Show, Generic, Eq)
+instance FromJSON FunctionSpec 
+instance ToJSON FunctionSpec 
 
 data Attribute = Attribute { attributeid :: T.Text,
                              targetid :: T.Text,
@@ -129,24 +134,27 @@ instance FromJSON Attribute
 instance ToJSON Attribute 
 
 data Process = Process { processid :: T.Text,
-                         assignedruntimeid :: T.Text,
+                         assignedexecutorid :: T.Text,
                          isassigned :: Bool,
                          state :: Int,
+                         prioritytime :: Int,
                          submissiontime :: T.Text,
                          starttime :: T.Text,
                          endtime :: T.Text, 
                          waitdeadline :: T.Text,
                          execdeadline :: T.Text,
-                         errormsg :: T.Text,
                          retries :: Int,
                          attributes :: [Attribute],
-                         spec :: ProcessSpec,
+                         spec :: FunctionSpec,
                          waitforparents :: Bool,
                          parents :: [T.Text],
                          children :: [T.Text],
-                         processgraphid :: T.Text} deriving (Show, Generic, Eq)
-instance FromJSON Process 
-instance ToJSON Process
+                         processgraphid :: T.Text,
+                         input :: [T.Text],
+                         output :: [T.Text],
+                         errors :: [T.Text] } deriving (Show, Generic, Eq)
+
+$(deriveJSON defaultOptions {fieldLabelModifier = processFieldRename} ''Process)
 
 -- RPC functions  
 checkError :: Either HttpException (Response BLI.ByteString) -> Maybe Err 
@@ -224,7 +232,7 @@ parseProcess res = do
     case res of
         Nothing -> Nothing
         Just tuple -> do let payloadType = fst tuple
-                         let json = snd tuple 
+                         let json = snd tuple
                          JSON.decode json :: Maybe Process 
 
 parseAttribute :: Maybe (T.Text, BLI.ByteString) -> Maybe Attribute 
@@ -232,7 +240,7 @@ parseAttribute res = do
     case res of
         Nothing -> Nothing
         Just tuple -> do let payloadType = fst tuple
-                         let json = snd tuple 
+                         let json = snd tuple
                          JSON.decode json :: Maybe Attribute 
 
 -- API functions 
@@ -257,9 +265,9 @@ getColonies host key = do
 
 createRuntime :: String -> String -> String -> String -> Runtime 
 createRuntime runtimeName runtimeType runtimeId colonyId = 
-    Runtime { runtimeid = T.pack runtimeId, 
-              runtimetype = T.pack runtimeType, 
-              name = T.pack runtimeName, 
+    Runtime { executorid = T.pack runtimeId, 
+              executortype = T.pack runtimeType, 
+              executorname = T.pack runtimeName, 
               colonyid = T.pack colonyId,
               state = 0,
               commissiontime = "2022-07-10T13:32:17.117545582+02:00",
@@ -267,48 +275,50 @@ createRuntime runtimeName runtimeType runtimeId colonyId =
 
 addRuntime :: Runtime -> String -> String -> IO (Maybe Runtime)
 addRuntime runtime host key = do
-    resp <- sendRPCMsg AddRuntimeRPCMsg { runtime = runtime, msgtype = "addruntimemsg" } host key 
+    resp <- sendRPCMsg AddRuntimeRPCMsg { executor = runtime, msgtype = "addexecutormsg" } host key 
     return $ parseRuntime $ parseResponse resp 
 
 approveRuntime :: String -> String -> String -> IO (Maybe Err)
 approveRuntime runtimeId host key = do
-    resp <- sendRPCMsg ApproveRuntimeRPCMsg { runtimeid = T.pack runtimeId, msgtype = "approveruntimemsg" } host key 
+    resp <- sendRPCMsg ApproveRuntimeRPCMsg { executorid = T.pack runtimeId, msgtype = "approveexecutormsg" } host key 
     return $ checkError resp
 
 createConditions :: String -> String -> [String] -> Conditions 
 createConditions colonyId runtimeType dependencies =  
     Conditions { colonyid = T.pack colonyId,
-                            runtimeids = [],
-                            runtimetype = T.pack runtimeType,
+                            executorids = [],
+                            executortype = T.pack runtimeType,
                             dependencies = fmap (T.pack) dependencies }
 
-createProcessSpec :: String -> String -> [String] -> Int -> Int -> Int -> Conditions -> ProcessSpec 
+createProcessSpec :: String -> String -> [String] -> Int -> Int -> Int -> Conditions -> FunctionSpec 
 createProcessSpec name func args maxwaittime maxexectime maxretries conditions =
-  ProcessSpec { name = T.pack name,
-                func = T.pack func,
-                args = fmap (T.pack) args,
-                priority = 0,
-                maxwaittime = maxwaittime,
-                maxexectime = maxexectime,
-                maxretries = maxretries,
-                conditions = conditions,
-                env = M.empty } 
+  FunctionSpec { nodename = T.pack name,
+                 funcname = T.pack func,
+                 args = fmap (T.pack) args,
+                 priority = 0,
+                 maxwaittime = maxwaittime,
+                 maxexectime = maxexectime,
+                 maxretries = maxretries,
+                 conditions = conditions,
+                 label = "",
+                 env = M.empty }
 
-createProcessSpecWithEnv :: String -> String -> [String] -> Int -> Int -> Int -> Map T.Text T.Text -> Conditions -> ProcessSpec 
+createProcessSpecWithEnv :: String -> String -> [String] -> Int -> Int -> Int -> Map T.Text T.Text -> Conditions -> FunctionSpec 
 createProcessSpecWithEnv name func args maxwaittime maxexectime maxretries env conditions =
-  ProcessSpec { name = T.pack name,
-                func = T.pack func,
-                args = fmap (T.pack) args,
-                priority = 0,
-                maxwaittime = maxwaittime,
-                maxexectime = maxexectime,
-                maxretries = maxretries,
-                conditions = conditions,
-                env = env} 
+  FunctionSpec { nodename = T.pack name,
+                 funcname = T.pack func,
+                 args = fmap (T.pack) args,
+                 priority = 0,
+                 maxwaittime = maxwaittime,
+                 maxexectime = maxexectime,
+                 maxretries = maxretries,
+                 conditions = conditions,
+                 label = "",
+                 env = env }
 
-addEnv :: ProcessSpec -> String -> String -> ProcessSpec
-addEnv spec key value = do let name = T.unpack (getField @"name" spec)
-                           let func = T.unpack (getField @"func" spec)
+addEnv :: FunctionSpec -> String -> String -> FunctionSpec
+addEnv spec key value = do let name = T.unpack (getField @"nodename" spec)
+                           let func = T.unpack (getField @"funcname" spec)
                            let args = fmap (T.unpack) (getField @"args" spec)
                            let maxwaittime = getField @"maxwaittime" spec
                            let maxexectime = getField @"maxexectime" spec
@@ -323,37 +333,41 @@ addEnv spec key value = do let name = T.unpack (getField @"name" spec)
 createEmptyProcess :: Process
 createEmptyProcess = 
     Process { processid = "",
-              assignedruntimeid  = "",
+              assignedexecutorid  = "",
               isassigned = False,
               state = -1,
+              prioritytime = 0,
               submissiontime = "",
               starttime = "",
               endtime = "", 
               waitdeadline = "",
               execdeadline = "",
-              errormsg = "",
               retries = -1,
               attributes = [],
-              spec = ProcessSpec { name = "",
-                                   func = "",
-                                   args = [],
-                                   priority = 0,
-                                   maxwaittime = -1,
-                                   maxexectime = -1,
-                                   maxretries = -1,
-                                   conditions = Conditions { colonyid = "",
-                                                             runtimeids = [],
-                                                             runtimetype = "",
-                                                             dependencies = [] },
-                                   env = M.empty },
+              spec = FunctionSpec { nodename = "",
+                                    funcname = "",
+                                    args = [],
+                                    priority = 0,
+                                    maxwaittime = -1,
+                                    maxexectime = -1,
+                                    maxretries = -1,
+                                    conditions = Conditions { colonyid = "",
+                                                              executorids = [],
+                                                              executortype = "",
+                                                              dependencies = [] },
+                                    label = "",
+                                    env = M.empty },
               waitforparents = False,
               parents = [],
               children = [],
-              processgraphid  = ""}
+              processgraphid  = "",
+              input = [],
+              output = [],
+              errors = [] }
 
-submit :: ProcessSpec -> String -> String -> IO (Maybe Process)
+submit :: FunctionSpec -> String -> String -> IO (Maybe Process)
 submit spec host key = do 
-    resp <- sendRPCMsg SubmitProcessSpecRPCMsg { spec = spec, msgtype = "submitprocessespecmsg" } host key 
+    resp <- sendRPCMsg SubmitProcessSpecRPCMsg { spec = spec, msgtype = "submitfuncspecmsg" } host key
     return $ parseProcess $ parseResponse resp 
 
 getProcess :: String -> String -> String -> IO (Maybe Process)
@@ -369,7 +383,7 @@ assign colonyId timeout host key = do
 getFunc :: Process -> IO String
 getFunc process = do 
     let spec = getField @"spec" process 
-    return $ T.unpack $ getField @"func" spec 
+    return $ T.unpack $ getField @"funcname" spec 
 
 getArgs :: Process -> IO [String]
 getArgs process = do 
