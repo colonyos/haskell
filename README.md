@@ -1,5 +1,5 @@
 # Introduction
-This repo contains a Haskell implementation of the Colonies API, making it possible to implement Colonies executor and applications in Haskell.
+This repo contains a Haskell implementation of the [Colonies API](https://github.com/colonyos/colonies), making it possible to implement Colonies executor and applications in Haskell.
 
 ## Example code
 The code below assigns a Colonies process and calculates the last number in a Fibonacci series. 
