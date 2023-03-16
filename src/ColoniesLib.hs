@@ -7,16 +7,16 @@
 
 module ColoniesLib  (
     Colony (..), 
-    Runtime (..),
+    Executor (..),
     Conditions (..),
     FunctionSpec (..),
     createColony,
     addColony,
     getColony,
     getColonies,
-    createRuntime,
-    addRuntime,
-    approveRuntime,
+    createExecutor,
+    addExecutor,
+    approveExecutor,
     createConditions,
     createProcessSpec,
     createEmptyProcess,
@@ -76,8 +76,8 @@ data Err = Err deriving (Show, Eq)
 data RPCOperations = AddColonyRPCMsg { colony  :: Colony, msgtype :: T.Text } 
                    | GetColonyRPCMsg { colonyid :: T.Text, msgtype :: T.Text }
                    | GetColoniesRPCMsg { msgtype :: T.Text }
-                   | AddRuntimeRPCMsg { executor :: Runtime, msgtype :: T.Text }
-                   | ApproveRuntimeRPCMsg { executorid :: T.Text, msgtype :: T.Text }
+                   | AddExecutorRPCMsg { executor :: Executor, msgtype :: T.Text }
+                   | ApproveExecutorRPCMsg { executorid :: T.Text, msgtype :: T.Text }
                    | SubmitProcessSpecRPCMsg { spec :: FunctionSpec, msgtype :: T.Text }
                    | GetProcessRPCMsg { processid :: T.Text, msgtype :: T.Text }
                    | AssignProcessRPCMsg { colonyid :: T.Text, timeout :: Int, msgtype :: T.Text }
@@ -93,15 +93,15 @@ data Colony = Colony { colonyid :: T.Text,
 instance FromJSON Colony
 instance ToJSON Colony
 
-data Runtime = Runtime { executorid :: T.Text,
-                         executortype :: T.Text,
-                         executorname :: T.Text,
-                         colonyid :: T.Text,
-                         state :: Int,
-                         commissiontime :: T.Text,
-                         lastheardfromtime :: T.Text } deriving (Show, Generic, Eq)
-instance FromJSON Runtime 
-instance ToJSON Runtime 
+data Executor = Executor { executorid :: T.Text,
+                          executortype :: T.Text,
+                          executorname :: T.Text,
+                          colonyid :: T.Text,
+                          state :: Int,
+                          commissiontime :: T.Text,
+                          lastheardfromtime :: T.Text } deriving (Show, Generic, Eq)
+instance FromJSON Executor 
+instance ToJSON Executor 
 
 data Conditions = Conditions { colonyid :: T.Text, 
                                executorids :: [T.Text],
@@ -203,13 +203,13 @@ parseResponse e = case e of
                                         let jsonEncoded = Base64.decode $ BI.packChars $ T.unpack payload
                                         parsePayload payloadType jsonEncoded
 
-parseRuntime :: Maybe (T.Text, BLI.ByteString) -> Maybe Runtime 
-parseRuntime res = do  
+parseExecutor :: Maybe (T.Text, BLI.ByteString) -> Maybe Executor
+parseExecutor res = do  
     case res of
         Nothing -> Nothing
         Just tuple -> do let payloadType = fst tuple
                          let json = snd tuple 
-                         JSON.decode json :: Maybe Runtime 
+                         JSON.decode json :: Maybe Executor 
 
 parseColony :: Maybe (T.Text, BLI.ByteString) -> Maybe Colony
 parseColony res = do  
@@ -263,31 +263,31 @@ getColonies host key = do
     resp <- sendRPCMsg GetColoniesRPCMsg { msgtype = "getcoloniesmsg" } host key 
     return $ parseColonies $ parseResponse resp 
 
-createRuntime :: String -> String -> String -> String -> Runtime 
-createRuntime runtimeName runtimeType runtimeId colonyId = 
-    Runtime { executorid = T.pack runtimeId, 
-              executortype = T.pack runtimeType, 
-              executorname = T.pack runtimeName, 
-              colonyid = T.pack colonyId,
-              state = 0,
-              commissiontime = "2022-07-10T13:32:17.117545582+02:00",
-              lastheardfromtime = "2022-07-10T13:32:17.117545582+02:00"}
+createExecutor :: String -> String -> String -> String -> Executor 
+createExecutor executorName executorType executorId colonyId = 
+    Executor { executorid = T.pack executorId, 
+               executortype = T.pack executorType, 
+               executorname = T.pack executorName, 
+               colonyid = T.pack colonyId,
+               state = 0,
+               commissiontime = "2022-07-10T13:32:17.117545582+02:00",
+               lastheardfromtime = "2022-07-10T13:32:17.117545582+02:00"}
 
-addRuntime :: Runtime -> String -> String -> IO (Maybe Runtime)
-addRuntime runtime host key = do
-    resp <- sendRPCMsg AddRuntimeRPCMsg { executor = runtime, msgtype = "addexecutormsg" } host key 
-    return $ parseRuntime $ parseResponse resp 
+addExecutor :: Executor -> String -> String -> IO (Maybe Executor)
+addExecutor executor host key = do
+    resp <- sendRPCMsg AddExecutorRPCMsg { executor = executor, msgtype = "addexecutormsg" } host key 
+    return $ parseExecutor $ parseResponse resp 
 
-approveRuntime :: String -> String -> String -> IO (Maybe Err)
-approveRuntime runtimeId host key = do
-    resp <- sendRPCMsg ApproveRuntimeRPCMsg { executorid = T.pack runtimeId, msgtype = "approveexecutormsg" } host key 
+approveExecutor :: String -> String -> String -> IO (Maybe Err)
+approveExecutor executorId host key = do
+    resp <- sendRPCMsg ApproveExecutorRPCMsg { executorid = T.pack executorId, msgtype = "approveexecutormsg" } host key 
     return $ checkError resp
 
 createConditions :: String -> String -> [String] -> Conditions 
-createConditions colonyId runtimeType dependencies =  
+createConditions colonyId executorType dependencies =  
     Conditions { colonyid = T.pack colonyId,
                             executorids = [],
-                            executortype = T.pack runtimeType,
+                            executortype = T.pack executorType,
                             dependencies = fmap (T.pack) dependencies }
 
 createProcessSpec :: String -> String -> [String] -> Int -> Int -> Int -> Conditions -> FunctionSpec 

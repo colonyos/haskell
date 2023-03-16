@@ -1,5 +1,5 @@
 # Introduction
-This repo contains a Haskell implementation of the ColonyRuntime API, making it possible to implement Colonies applications/workers in Haskell.
+This repo contains a Haskell implementation of the Colonies API, making it possible to implement Colonies executor and applications in Haskell.
 
 ## Example code
 The code below assigns a Colonies process and calculates the last number in a Fibonacci series. 
@@ -12,18 +12,18 @@ import Control.Concurrent (threadDelay)
 import Control.Monad (forever)
 
 colonyId = "4787a5071856a4acf702b2ffcea422e3237a679c681314113d86139461290cf4"
-runtimePrvKey = "ddf7f7791208083b6a9ed975a72684f6406a269cfa36f1b1c32045c0a71fff05"
+executorPrvKey = "ddf7f7791208083b6a9ed975a72684f6406a269cfa36f1b1c32045c0a71fff05"
 host = "http://localhost:50080"
 
 fib 0 = 0
 fib 1 = 1
 fib n = fib (n-1) + fib (n-2)
 
-worker :: IO ()
-worker = do
+executor :: IO ()
+executor = do
     -- Connect to the Colonies server and try to assign a process to execute from the job queue
     -- Wait max 5 seconds for an assignment 
-    maybeProcess <- assign colonyId 5 host runtimePrvKey
+    maybeProcess <- assign colonyId 5 host executorPrvKey
     if maybeProcess /= Nothing then do
         -- Parse process parameters
         let process = maybe createEmptyProcess id maybeProcess
@@ -38,54 +38,32 @@ worker = do
             let attr = createAttribute process "output" $ show f
             -- Connect to the Colnies server and add the add attribute to the process object
             -- Note: addAddtribute will return Nothing in case of error, else a Just Attribute
-            maybeAddedAttr <- addAttribute attr host runtimePrvKey
-            close process host runtimePrvKey 
+            maybeAddedAttr <- addAttribute attr host executorPrvKey
+            close process host executorPrvKey 
             print "Done calculating Fibonacci"
         else
             print "Invalid Func arg"
     else 
-        print "Failed to assign process, try again ..."
+        print "No process could be assigned"
 
 main :: IO ()
-main = forever worker 
+main = forever executor 
 ```
 
 ## To test it ... 
 First, install [Stack](https://docs.haskellstack.org/en/stable/README/). 
 
-### Start a Colonies dev server 
-Note: the following environmental variables needs to be set, type **source devenv**.
+### Start a Colonies server 
+You need to have access to a Colonies server. On Linux, run the commands below to start a server. See the [Colonies release page](https://github.com/colonyos/colonies/releases) for Windows and Mac binaries.
 
 ```console
-export LANG=en_US.UTF-8
-export LANGUAGE=en_US.UTF-8
-export LC_ALL=en_US.UTF-8
-export LC_CTYPE=UTF-8
-export TZ=Europe/Stockholm
-export COLONIES_TLS="false"
-export COLONIES_SERVERHOST="localhost "
-export COLONIES_SERVERPORT="50080"
-export COLONIES_MONITORPORT="21120"
-export COLONIES_MONITORINTERVALL="1"
-export COLONIES_SERVERID="039231c7644e04b6895471dd5335cf332681c54e27f81fac54f9067b3f2c0103"
-export COLONIES_SERVERPRVKEY="fcc79953d8a751bf41db661592dc34d30004b1a651ffa0725b03ac227641499d"
-export COLONIES_DBHOST="localhost"
-export COLONIES_DBUSER="postgres"
-export COLONIES_DBPORT="50070"
-expoer COLONIES_DBPASSWORD="rFcLGNkgsNtksg6Pgtn9CumL4xXBQ7"
-export COLONIES_COLONYID="4787a5071856a4acf702b2ffcea422e3237a679c681314113d86139461290cf4"
-export COLONIES_COLONYPRVKEY="ba949fa134981372d6da62b6a56f336ab4d843b22c02a4257dcf7d0d73097514"
-export COLONIES_RUNTIMEID="3fc05cf3df4b494e95d6a3d297a34f19938f7daa7422ab0d4f794454133341ac"
-export COLONIES_RUNTIMEPRVKEY="ddf7f7791208083b6a9ed975a72684f6406a269cfa36f1b1c32045c0a71fff05"
-export COLONIES_RUNTIMETYPE="cli"
-```
-
-```console
+git clone https://github.com/colonyos/colonies
+cd colonies
 source devenv
-colonies dev
+./bin/colonies dev
 ```
 
-Start a Haskell worker (the example code). Note, you need to first install Stack and clone the repo.
+Start a Haskell executor (the example code). Note, you need to first install Stack and clone the repo.
 ```console
 stack run
 ```
@@ -107,22 +85,22 @@ INFO[0000] Process submitted                             ProcessID=da41231a1f300
 #### Output
 ```console
 Process:
-+-------------------+------------------------------------------------------------------+
-| ID                | da41231a1f30039edb5677a8084e5f1c605bc54e3e8fdec565170c4e4e8d23be |
-| IsAssigned        | True                                                             |
-| AssignedRuntimeID | 3fc05cf3df4b494e95d6a3d297a34f19938f7daa7422ab0d4f794454133341ac |
-| State             | Successful                                                       |
-| Priority          | 0                                                                |
-| SubmissionTime    | 2022-07-11 23:46:19                                              |
-| StartTime         | 2022-07-11 23:46:19                                              |
-| EndTime           | 2022-07-11 23:46:19                                              |
-| Deadline          | 0001-01-01 01:12:12                                              |
-| WaitingTime       | 473.1ms                                                          |
-| ProcessingTime    | 9.766ms                                                          |
-| Retries           | 0                                                                |
-+-------------------+------------------------------------------------------------------+
++--------------------+------------------------------------------------------------------+
+| ID                 | da41231a1f30039edb5677a8084e5f1c605bc54e3e8fdec565170c4e4e8d23be |
+| IsAssigned         | True                                                             |
+| AssignedExecutorID | 3fc05cf3df4b494e95d6a3d297a34f19938f7daa7422ab0d4f794454133341ac |
+| State              | Successful                                                       |
+| Priority           | 0                                                                |
+| SubmissionTime     | 2022-07-11 23:46:19                                              |
+| StartTime          | 2022-07-11 23:46:19                                              |
+| EndTime            | 2022-07-11 23:46:19                                              |
+| Deadline           | 0001-01-01 01:12:12                                              |
+| WaitingTime        | 473.1ms                                                          |
+| ProcessingTime     | 9.766ms                                                          |
+| Retries            | 0                                                                |
++--------------------+------------------------------------------------------------------+
 
-ProcessSpec:
+FunctionSpec:
 +-------------+-----------+
 | Func        | fibonacci |
 | Args        | 10        |
@@ -131,11 +109,11 @@ ProcessSpec:
 +-------------+-----------+
 
 Conditions:
-+-------------+------------------------------------------------------------------+
-| ColonyID    | 4787a5071856a4acf702b2ffcea422e3237a679c681314113d86139461290cf4 |
-| RuntimeIDs  | None                                                             |
-| RuntimeType | cli                                                              |
-+-------------+------------------------------------------------------------------+
++--------------+------------------------------------------------------------------+
+| ColonyID     | 4787a5071856a4acf702b2ffcea422e3237a679c681314113d86139461290cf4 |
+| ExecutorIDs  | None                                                             |
+| ExecutorType | cli                                                              |
++--------------+------------------------------------------------------------------+
 
 Attributes:
 +------------------------------------------------------------------+--------+-------+------+
@@ -147,7 +125,7 @@ Attributes:
 
 ### Submit a process to calculate Fib(10) and wait for the result
 ```console
-./bin/colonies process run --func fibonacci --args 10 --runtimetype cli --wait
+./bin/colonies function exec --func fibonacci --args 10 --executortype cli --wait
 ```
 
 #### Output
